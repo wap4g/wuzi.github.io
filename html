@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>五子棋 - WAP版</title>
+    <style>
+        canvas {
+            border: 1px solid #000;
+            display: block;
+            margin: 0 auto;
+        }
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+        }
+        #restart {
+            margin-top: 10px;
+            padding: 5px 10px;
+        }
+    </style>
+</head>
+<body>
+    <h2>五子棋 - 人机对战</h2>
+    <canvas id="chess" width="450" height="450"></canvas>
+    <button id="restart">重新开始</button>
+
+    <script>
+        const canvas = document.getElementById('chess');
+        const ctx = canvas.getContext('2d');
+        const gridSize = 30;
+        const boardSize = 15;
+        let board = [];
+        let isBlack = true; // 玩家黑棋，AI白棋
+        let gameOver = false;
+
+        // 初始化棋盘
+        function initBoard() {
+            board = [];
+            for (let i = 0; i < boardSize; i++) {
+                board[i] = new Array(boardSize).fill(0); // 0:空, 1:黑, 2:白
+            }
+            gameOver = false;
+            isBlack = true;
+            drawBoard();
+        }
+
+        // 绘制棋盘
+        function drawBoard() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.beginPath();
+            for (let i = 0; i < boardSize; i++) {
+                ctx.moveTo(gridSize / 2 + i * gridSize, gridSize / 2);
+                ctx.lineTo(gridSize / 2 + i * gridSize, gridSize / 2 + (boardSize - 1) * gridSize);
+                ctx.moveTo(gridSize / 2, gridSize / 2 + i * gridSize);
+                ctx.lineTo(gridSize / 2 + (boardSize - 1) * gridSize, gridSize / 2 + i * gridSize);
+            }
+            ctx.strokeStyle = '#000';
+            ctx.stroke();
+
+            for (let i = 0; i < boardSize; i++) {
+                for (let j = 0; j < boardSize; j++) {
+                    if (board[i][j] === 1) drawPiece(i, j, true);
+                    else if (board[i][j] === 2) drawPiece(i, j, false);
+                }
+            }
+        }
+
+        // 绘制棋子
+        function drawPiece(x, y, isBlack) {
+            ctx.beginPath();
+            ctx.arc(gridSize / 2 + x * gridSize, gridSize / 2 + y * gridSize, gridSize / 2 - 2, 0, Math.PI * 2);
+            ctx.fillStyle = isBlack ? '#000' : '#fff';
+            ctx.fill();
+            ctx.stroke();
+        }
+
+        // 检查连子数
+        function countConsecutive(x, y, dx, dy, player) {
+            let count = 0;
+            for (let i = -4; i <= 4; i++) {
+                let nx = x + i * dx, ny = y + i * dy;
+                if (nx < 0 || nx >= boardSize || ny < 0 || ny >= boardSize || board[nx][ny] !== player) {
+                    if (count > 0) break;
+                    continue;
+                }
+                count++;
+            }
+            return count;
+        }
+
+        // 检查胜利
+        function checkWin(x, y, player) {
+            const directions = [[1, 0], [0, 1], [1, 1], [1, -1]];
+            for (let [dx, dy] of directions) {
+                if (countConsecutive(x, y, dx, dy, player) >= 5) return true;
+            }
+            return false;
+        }
+
+        // AI落子逻辑
+        function aiMove() {
+            if (gameOver) return;
+            let bestMove = null;
+            let empty = [];
+
+            // 收集所有空位
+            for (let i = 0; i < boardSize; i++) {
+                for (let j = 0; j < boardSize; j++) {
+                    if (board[i][j] === 0) empty.push([i, j]);
+                }
+            }
+            if (empty.length === 0) return;
+
+            // 优先级1：AI自己能赢
+            for (let [x, y] of empty) {
+                board[x][y] = 2;
+                if (checkWin(x, y, 2)) {
+                    drawBoard();
+                    alert('白棋(AI)获胜！');
+                    gameOver = true;
+                    return;
+                }
+                board[x][y] = 0;
+            }
+
+            // 优先级2：阻止玩家赢（四连）
+            for (let [x, y] of empty) {
+                board[x][y] = 1;
+                if (countConsecutive(x, y, 1, 0, 1) >= 4 || 
+                    countConsecutive(x, y, 0, 1, 1) >= 4 || 
+                    countConsecutive(x, y, 1, 1, 1) >= 4 || 
+                    countConsecutive(x, y, 1, -1, 1) >= 4) {
+                    board[x][y] = 2;
+                    drawBoard();
+                    if (checkWin(x, y, 2)) {
+                        alert('白棋(AI)获胜！');
+                        gameOver = true;
+                    }
+                    isBlack = true;
+                    return;
+                }
+                board[x][y] = 0;
+            }
+
+            // 优先级3：AI尝试三连
+            for (let [x, y] of empty) {
+                board[x][y] = 2;
+                if (countConsecutive(x, y, 1, 0, 2) >= 3 || 
+                    countConsecutive(x, y, 0, 1, 2) >= 3 || 
+                    countConsecutive(x, y, 1, 1, 2) >= 3 || 
+                    countConsecutive(x, y, 1, -1, 2) >= 3) {
+                    bestMove = [x, y];
+                    break;
+                }
+                board[x][y] = 0;
+            }
+
+            // 如果没有好位置，随机落子
+            if (!bestMove) bestMove = empty[Math.floor(Math.random() * empty.length)];
+            board[bestMove[0]][bestMove[1]] = 2;
+            drawBoard();
+            if (checkWin(bestMove[0], bestMove[1], 2)) {
+                alert('白棋(AI)获胜！');
+                gameOver = true;
+            }
+            isBlack = true;
+        }
+
+        // 点击事件
+        canvas.addEventListener('click', (e) => {
+            if (!isBlack || gameOver) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.round((e.clientX - rect.left - gridSize / 2) / gridSize);
+            const y = Math.round((e.clientY - rect.top - gridSize / 2) / gridSize);
+            if (x < 0 || x >= boardSize || y < 0 || y >= boardSize || board[x][y] !== 0) return;
+
+            board[x][y] = 1;
+            drawBoard();
+            if (checkWin(x, y, 1)) {
+                alert('黑棋(玩家)获胜！');
+                gameOver = true;
+                return;
+            }
+            setTimeout(aiMove, 500);
+        });
+
+        // 重新开始
+        document.getElementById('restart').addEventListener('click', initBoard);
+
+        // 初始化游戏
+        initBoard();
+    </script>
+</body>
+</html>
